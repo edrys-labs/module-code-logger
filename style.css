@@ -99,6 +99,13 @@ html > body {
     opacity: 0.7;
 }
 
+/* the file name above each file of a multi-file run */
+.student-code .file-name {
+    margin: 0.5rem 0 0;
+    font-size: small;
+    opacity: 0.8;
+}
+
 .student-code pre {
     margin: 0.5rem 0 0;
     border-radius: 6px;

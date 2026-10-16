@@ -6,7 +6,7 @@
 
     <meta
       name="description"
-      content="An Edrys module to log students code."
+      content="Logs the code that is run in a room (e.g. with an editor's Execute button), for teachers. <a href='https://github.com/edrys-labs/module-code-logger' target='_blank'>GitHub</a>"
     />
     <meta name="show-in" content="*" />
     <meta
@@ -16,6 +16,11 @@
           'runCommand': {
             'type': 'string',
             'hint': 'Message subjects to log, comma-separated, e.g. the runCommand of your editors (default: execute)'
+          },
+          'language': {
+            'type': 'select',
+            'options': ['cpp', 'c', 'python', 'javascript', 'none'],
+            'hint': 'Language for the code highlighting (default: cpp)'
           }
         }
       }"
@@ -30,10 +35,6 @@
       crossorigin="anonymous"
     ></script>
 
-    <link
-      rel="stylesheet"
-      href="../node_modules/monaco-editor/min/vs/editor/editor.main.css"
-    />
     <link
       rel="stylesheet"
       href="https://edrys-labs.github.io/module/vendor/water.min.css"
@@ -76,6 +77,11 @@
     <script
       src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"
       integrity="sha384-NiOrAquf32LSG3Vuig99LKS03EZPUuM8a51NOp+XXsqx08hUVo3wbNWALY7K/2J8"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"
+      integrity="sha384-WJdEkJKrbsqw0evQ4GB6mlsKe5cGTxBOw4KAEIa52ZLB7DDpliGkwdme/HMa5n1m"
       crossorigin="anonymous"
     ></script>
 

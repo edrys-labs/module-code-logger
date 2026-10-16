@@ -34,20 +34,24 @@ const scrollUpButton = document.getElementById('scroll-up');
 
 // Settings, see the module-config meta in index.html
 const DEFAULTS = {
-    runCommand: 'execute'
+    runCommand: 'execute',
+    language: 'cpp'
 };
 
 // Logger variables
 let isLoggingEnabled = false;
-let logsDate = null;
-let isLoadError = false;
 let currentPage = 1;
 const submissionsPerPage = 10;
 let subjects = [DEFAULTS.runCommand]; // Message subjects that are logged
+let language = DEFAULTS.language; // Prism language of the code
 
 // The log being recorded or loaded from IndexedDB (null for a log loaded from a file)
 let currentLogId = null;
+// Where and when the shown log was recorded, for the download name. Logs from
+// files and older logs have no start time, only the date text of logsDate.
+let logRoom = null;
 let logStartedAt = null;
+let logsDate = null;
 
 // Database: one record per log in `logs`, one per run in `entries`.
 // Logs saved before version 2 keep their runs inline (`studentsSubmissions`)
@@ -62,8 +66,6 @@ db.version(2).stores({
 });
 
 Edrys.onReady(() => {
-    console.log('Code Logger is ready!');
-
     // Only teachers may monitor. This hides the UI; it is not a security
     // boundary, since any module in the room can listen to these subjects.
     if (Edrys.role !== 'teacher') {
@@ -76,9 +78,11 @@ Edrys.onReady(() => {
     // Messages arrive only from this room; changing rooms reloads the module
     roomName.textContent = Edrys.liveUser?.room ?? '';
 
-    const runCommands = String(readConfig().runCommand).split(',').map((s) => s.trim()).filter(Boolean);
+    const config = readConfig();
+    const runCommands = String(config.runCommand).split(',').map((s) => s.trim()).filter(Boolean);
     subjects = runCommands.length > 0 ? runCommands : [DEFAULTS.runCommand];
     subjectsElement.textContent = subjects.join(', ');
+    language = String(config.language);
 });
 
 // The module's config merged with DEFAULTS. The settings form saves unset
@@ -129,7 +133,7 @@ Edrys.onMessage(({ from, subject, body }) => {
         renderSubmissions();
         storeEntry(newEntry, studentsSubmissions.length === 1);
     }
-}, (promiscuous = true));
+}, true); // promiscuous: the code comes from other modules, e.g. editors
 
 // Display the code submissions
 function renderSubmissions() {
@@ -159,12 +163,20 @@ function renderSubmissions() {
 
         const studentCode = document.createElement('div');
         studentCode.classList.add('student-code');
-        const pre = document.createElement('pre');
-        const code = document.createElement('code');
-        code.classList.add('language-cpp');
-        code.textContent = String(submission.Code ?? '');
-        pre.appendChild(code);
-        studentCode.appendChild(pre);
+        codeFiles(String(submission.Code ?? '')).forEach((file) => {
+            if (file.name !== null) {
+                const fileName = document.createElement('p');
+                fileName.classList.add('file-name', 'mono');
+                fileName.textContent = file.name;
+                studentCode.appendChild(fileName);
+            }
+            const pre = document.createElement('pre');
+            const code = document.createElement('code');
+            code.classList.add(`language-${language}`);
+            code.textContent = file.code;
+            pre.appendChild(code);
+            studentCode.appendChild(pre);
+        });
 
         submissionElement.append(studentInfo, studentCode);
         submissionsContainer.appendChild(submissionElement);
@@ -193,6 +205,45 @@ function infoField(label, value) {
     return field;
 };
 
+// The files of a run. Editors in multi-file mode send '{"file": {"name": "code", ...}}';
+// anything else is one unnamed file.
+function codeFiles(code) {
+    if (code.trimStart().startsWith('{')) {
+        try {
+            const { file } = JSON.parse(code);
+            if (file && typeof file === 'object' && !Array.isArray(file)) {
+                return Object.entries(file).map(([name, content]) => ({
+                    name,
+                    code: typeof content === 'string' ? content : JSON.stringify(content, null, 2)
+                }));
+            }
+        } catch (error) {
+            // not JSON, so plain code that starts with '{'
+        }
+    }
+    return [{ name: null, code }];
+};
+
+// "code-log_<room>_<start>.json", without characters that file systems reject
+function downloadName() {
+    const pad = (n) => String(n).padStart(2, '0');
+    const start = logStartedAt
+        ? `${logStartedAt.getFullYear()}-${pad(logStartedAt.getMonth() + 1)}-${pad(logStartedAt.getDate())}` +
+          `T${pad(logStartedAt.getHours())}-${pad(logStartedAt.getMinutes())}`
+        : logsDate;
+    return ['code-log', logRoom, start]
+        .filter(Boolean)
+        .map((part) => String(part).replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, ''))
+        .join('_') + '.json';
+};
+
+// Room and date text of a log saved before version 2, from its id
+// "User: username_Room name_Date: datetime"
+function legacyLogInfo(id) {
+    const [userAndRoom, dateTime = ''] = id.split('_Date:');
+    return { room: userAndRoom.split('_')[1], date: dateTime.trim() };
+};
+
 // Whether parsed JSON is a log as downloaded by this module
 function isCodeLog(logs) {
     return Array.isArray(logs) && logs.every((entry) => entry && typeof entry === 'object' && 'Code' in entry);
@@ -202,8 +253,9 @@ function isCodeLog(logs) {
 startLogger.onclick = () => {
     isLoggingEnabled = true;
     currentLogId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    logRoom = Edrys.liveUser?.room ?? null;
     logStartedAt = new Date();
-    logsDate = logStartedAt.toLocaleString();
+    logsDate = null;
     storageError.textContent = '';
     studentsSubmissions = [];
     currentPage = 1;
@@ -236,12 +288,9 @@ downloadLogs.onclick = () => {
     const blob = new Blob([JSON.stringify(studentsSubmissions)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
 
-    const username = Edrys.username.split('_')[0];
-    const stationName = Edrys.liveUser.room;
-
     const a = document.createElement('a');
     a.href = url;
-    a.download = `CodeLog_User: ${username}_${stationName}_Date: ${logsDate}.json`;
+    a.download = downloadName();
     a.click();
     URL.revokeObjectURL(url);
 };
@@ -291,9 +340,8 @@ function readEntries(log) {
 function logLabel(log) {
     if (log.startedAt) return `${log.room} - ${new Date(log.startedAt).toLocaleString()}`;
 
-    // Older format, the id is "User: username_Room name_Date: datetime"
-    const [userAndRoom, dateTime] = log.id.split('_Date:');
-    return `${userAndRoom.split('_')[1]} - ${dateTime} (older format)`;
+    const { room, date } = legacyLogInfo(log.id);
+    return `${room} - ${date} (older format)`;
 };
 
 // Load logs from IndexedDB for the select field: this class's logs, newest
@@ -327,7 +375,6 @@ function loadLogFromDB() {
 
     // Check if a log is selected
     if (!selectedLogId) {
-        isLoadError = true;
         loadError.textContent = "Please select a log.";
         return;
     }
@@ -336,7 +383,6 @@ function loadLogFromDB() {
     db.logs.get(selectedLogId)
         .then((log) => {
             if (!log) {
-                isLoadError = true;
                 loadError.textContent = "Log not found.";
                 return;
             }
@@ -348,13 +394,13 @@ function loadLogFromDB() {
                 currentLogId = log.id;
                 renderSubmissions();
 
-                // The log's start (to be used for download)
-                logsDate = log.startedAt
-                    ? new Date(log.startedAt).toLocaleString()
-                    : selectedLogId.split('_Date: ').pop();
+                // Where and when it was recorded (to be used for download)
+                const legacy = log.startedAt ? null : legacyLogInfo(log.id);
+                logRoom = log.room ?? legacy.room;
+                logStartedAt = log.startedAt ? new Date(log.startedAt) : null;
+                logsDate = legacy ? legacy.date : null;
 
                 // No errors, close the dialog and show the log
-                isLoadError = false;
                 logsModal.close();
                 loadError.textContent = "";
 
@@ -362,7 +408,6 @@ function loadLogFromDB() {
             });
         })
         .catch((error) => {
-            isLoadError = true;
             loadError.textContent = "An error occurred while loading the log.";
             console.error("Error loading log:", error);
         });
@@ -418,8 +463,10 @@ loadLogsFromFile.onclick = () => {
                 studentsSubmissions = logs;
                 currentPage = 1;
                 currentLogId = null;
-                // The log's own start, for the download name
-                logsDate = logs.length > 0 ? logs[0].Date : new Date().toLocaleString();
+                // A file knows no room or start time: name the download after its first run
+                logRoom = null;
+                logStartedAt = null;
+                logsDate = logs.length > 0 ? logs[0].Date : null;
                 renderSubmissions();
 
                 showLoadedLog('loaded from file');
