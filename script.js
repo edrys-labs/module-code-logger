@@ -46,7 +46,8 @@ Edrys.onMessage(({ from, subject, body }) => {
         const newEntry = {
             From: from,
             Date: new Date().toLocaleString(),
-            Code: body
+            // Any module may send under 'execute', and bodies can be any value
+            Code: typeof body === 'string' ? body : JSON.stringify(body, null, 2)
         };
 
         studentsSubmissions.push(newEntry);
@@ -59,34 +60,37 @@ Edrys.onMessage(({ from, subject, body }) => {
 // Display the code submissions
 function renderSubmissions() {
     const submissionsContainer = document.querySelector('.students-submissions');
-    submissionsContainer.innerHTML = '';
+    submissionsContainer.replaceChildren();
 
     // Show pagination if there are submissions
     paginationButtons.classList.remove('hidden');
+    downloadLogs.disabled = studentsSubmissions.length === 0;
 
     const startIndex = (currentPage - 1) * submissionsPerPage;
     const endIndex = startIndex + submissionsPerPage;
     const paginatedSubmissions = studentsSubmissions.slice(startIndex, endIndex);
 
+    // Entries come from peers and from loaded files: insert them as text only
     paginatedSubmissions.forEach((submission) => {
         const submissionElement = document.createElement('div');
         submissionElement.classList.add('submission-wrapper');
 
-        submissionElement.innerHTML = `
-            <div class="student-info">
-                <div>
-                    <p>From: <span>${submission.From}</span></p>
-                </div>
-                <div>
-                    <p>Date: <span>${submission.Date}</span></p>
-                </div>
-            </div>
-            <div class="student-code">
-                <p>Code:</p>
-                <pre><code class="language-cpp">${escapeHTML(submission.Code)}</code></pre>
-            </div>
-        `;
+        const studentInfo = document.createElement('div');
+        studentInfo.classList.add('student-info');
+        studentInfo.append(infoField('From', submission.From), infoField('Date', submission.Date));
 
+        const studentCode = document.createElement('div');
+        studentCode.classList.add('student-code');
+        const codeLabel = document.createElement('p');
+        codeLabel.textContent = 'Code:';
+        const pre = document.createElement('pre');
+        const code = document.createElement('code');
+        code.classList.add('language-cpp');
+        code.textContent = String(submission.Code ?? '');
+        pre.appendChild(code);
+        studentCode.append(codeLabel, pre);
+
+        submissionElement.append(studentInfo, studentCode);
         submissionsContainer.appendChild(submissionElement);
     });
 
@@ -99,20 +103,29 @@ function renderSubmissions() {
     Prism.highlightAll();
 };
 
-// Escape HTML characters
-function escapeHTML(code) {
-    return code
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+// A "Label: value" line of the student info
+function infoField(label, value) {
+    const wrapper = document.createElement('div');
+    const p = document.createElement('p');
+    const span = document.createElement('span');
+    span.textContent = String(value ?? '');
+    p.append(`${label}: `, span);
+    wrapper.appendChild(p);
+    return wrapper;
+};
+
+// Whether parsed JSON is a log as downloaded by this module
+function isCodeLog(logs) {
+    return Array.isArray(logs) && logs.every((entry) => entry && typeof entry === 'object' && 'Code' in entry);
 };
 
 // Logger Main Buttons Handlers
 startLogger.onclick = () => {
     isLoggingEnabled = true;
     logsDate = new Date().toLocaleString();
+    studentsSubmissions = [];
+    currentPage = 1;
+    renderSubmissions();
 
     stopLogger.disabled = false;
     clearLogger.disabled = true;
@@ -129,7 +142,6 @@ stopLogger.onclick = () => {
 };
 
 clearLogger.onclick = () => {
-    downloadLogs.disabled = true;
     studentsSubmissions = [];
     currentPage = 1;
     renderSubmissions();
@@ -266,13 +278,19 @@ loadLogsFromFile.onclick = () => {
 
     fileInput.onchange = () => {
         const file = fileInput.files[0];
+        if (!file) return;
         const reader = new FileReader();
 
         reader.onload = () => {
             try {
                 const logs = JSON.parse(reader.result);
+                // Check before replacing the current log, so a bad file leaves it intact
+                if (!isCodeLog(logs)) throw new Error('Not a code log');
 
                 studentsSubmissions = logs;
+                currentPage = 1;
+                // The log's own start, for the download name
+                logsDate = logs.length > 0 ? logs[0].Date : new Date().toLocaleString();
                 renderSubmissions();
 
                 mainContainer.classList.add('hidden');
