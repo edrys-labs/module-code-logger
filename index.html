@@ -9,6 +9,17 @@
       content="An Edrys module to log students code."
     />
     <meta name="show-in" content="*" />
+    <meta
+      name="module-config"
+      content="{
+        'config': {
+          'runCommand': {
+            'type': 'string',
+            'hint': 'Message subjects to log, comma-separated, e.g. the runCommand of your editors (default: execute)'
+          }
+        }
+      }"
+    />
 
     <title>Code Logger</title>
 
@@ -105,7 +116,7 @@
                 <button id="stop-logger">
                     <span class="oi" data-glyph="media-stop" aria-hidden="true"></span> Stop
                 </button>
-                <button id="clear-logger">
+                <button id="clear-logger" title="Clear the view; the saved copy stays under Load Logs from DB">
                     <span class="oi" data-glyph="trash" aria-hidden="true"></span> Clear
                 </button>
                 <button id="download-logs" title="Save the log to a JSON file">
@@ -120,13 +131,14 @@
         <!-- Start view -->
         <p class="hint main">
             While monitoring, every code run in <strong>this room</strong> (messages with the subject
-            <code>execute</code>, e.g. from an editor's Execute button) is listed here. To log the students at a
+            <code id="subjects">execute</code>, e.g. from an editor's Execute button) is listed here. To log the students at a
             station, enter the station's room. Leaving the room or reloading stops monitoring; the log so far stays
             under <em>Load Logs from DB</em>.
         </p>
 
         <!-- Log view -->
         <section class="logs hidden">
+            <p id="storage-error" class="error" role="alert"></p>
             <p id="empty-log" class="hint"></p>
 
             <div class="students-submissions"></div>

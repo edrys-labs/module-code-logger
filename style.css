@@ -134,11 +134,13 @@ html > body {
 #logs-select {
     width: 100%;
 }
-#load-error {
+#load-error,
+.error {
     color: var(--error);
     font-size: small;
 }
-#load-error:empty {
+#load-error:empty,
+.error:empty {
     display: none;
 }
 .modal-bottom {

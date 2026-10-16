@@ -17,6 +17,7 @@ const clearLogger = document.getElementById('clear-logger');
 const downloadLogs = document.getElementById('download-logs');
 const backToMain = document.getElementById('back-to-main');
 const emptyLog = document.getElementById('empty-log');
+const storageError = document.getElementById('storage-error');
 const paginationButtons = document.querySelector('.prev-next-btns');
 const prevPage = document.getElementById('prev-btn');
 const nextPage = document.getElementById('next-btn');
@@ -28,7 +29,13 @@ const closeModalButton = document.getElementById('close-modal');
 const loadLog = document.getElementById('load-log');
 const loadError = document.getElementById('load-error');
 
+const subjectsElement = document.getElementById('subjects');
 const scrollUpButton = document.getElementById('scroll-up');
+
+// Settings, see the module-config meta in index.html
+const DEFAULTS = {
+    runCommand: 'execute'
+};
 
 // Logger variables
 let isLoggingEnabled = false;
@@ -36,12 +43,29 @@ let logsDate = null;
 let isLoadError = false;
 let currentPage = 1;
 const submissionsPerPage = 10;
+let subjects = [DEFAULTS.runCommand]; // Message subjects that are logged
+
+// The log being recorded or loaded from IndexedDB (null for a log loaded from a file)
+let currentLogId = null;
+let logStartedAt = null;
+
+// Database: one record per log in `logs`, one per run in `entries`.
+// Logs saved before version 2 keep their runs inline (`studentsSubmissions`)
+// and have no class, room or start time.
+const db = new Dexie("CodeLogger");
+db.version(1).stores({
+    logs: 'id'
+});
+db.version(2).stores({
+    logs: 'id, classId',
+    entries: '++seq, logId'
+});
 
 Edrys.onReady(() => {
     console.log('Code Logger is ready!');
 
     // Only teachers may monitor. This hides the UI; it is not a security
-    // boundary, since any module in the room can listen to 'execute'.
+    // boundary, since any module in the room can listen to these subjects.
     if (Edrys.role !== 'teacher') {
         roleNote.textContent = 'The code log is only available to teachers.';
         return;
@@ -51,7 +75,24 @@ Edrys.onReady(() => {
 
     // Messages arrive only from this room; changing rooms reloads the module
     roomName.textContent = Edrys.liveUser?.room ?? '';
+
+    const runCommands = String(readConfig().runCommand).split(',').map((s) => s.trim()).filter(Boolean);
+    subjects = runCommands.length > 0 ? runCommands : [DEFAULTS.runCommand];
+    subjectsElement.textContent = subjects.join(', ');
 });
+
+// The module's config merged with DEFAULTS. The settings form saves unset
+// fields as '', and an unparsable config stays a string: both mean "default".
+function readConfig() {
+    const config = Edrys.module?.config;
+    const merged = { ...DEFAULTS };
+    if (config && typeof config === 'object') {
+        for (const [key, value] of Object.entries(config)) {
+            if (value !== '' && value != null) merged[key] = value;
+        }
+    }
+    return merged;
+};
 
 // Switch between the start view ('main') and the log view ('logs')
 function showView(view) {
@@ -74,19 +115,19 @@ let studentsSubmissions = []; // To store the code submissions
 
 // Listen for code submissions
 Edrys.onMessage(({ from, subject, body }) => {
-    if (subject === 'execute' && isLoggingEnabled) {
+    if (subjects.includes(subject) && isLoggingEnabled) {
         const newEntry = {
             From: displayName(from),
             FromId: from,
             Date: new Date().toLocaleString(),
-            // Any module may send under 'execute', and bodies can be any value
+            // Any module may send under these subjects, and bodies can be any value
             Code: typeof body === 'string' ? body : JSON.stringify(body, null, 2)
         };
 
         studentsSubmissions.push(newEntry);
 
         renderSubmissions();
-        storeLogInIndexedDB();
+        storeEntry(newEntry, studentsSubmissions.length === 1);
     }
 }, (promiscuous = true));
 
@@ -160,7 +201,10 @@ function isCodeLog(logs) {
 // Logger Main Buttons Handlers
 startLogger.onclick = () => {
     isLoggingEnabled = true;
-    logsDate = new Date().toLocaleString();
+    currentLogId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    logStartedAt = new Date();
+    logsDate = logStartedAt.toLocaleString();
+    storageError.textContent = '';
     studentsSubmissions = [];
     currentPage = 1;
     renderSubmissions();
@@ -212,42 +256,68 @@ backToMain.onclick = () => {
 };
 
 
-// Store log in IndexedDB
-function storeLogInIndexedDB() {
-    const username = Edrys.username.split('_')[0];
-    const stationName = Edrys.liveUser.room;
+// Writes to IndexedDB, one after the other, so runs keep their order
+let storeQueue = Promise.resolve();
 
-    db.logs.put({ id: `User: ${username}_${stationName}_Date: ${logsDate}`, studentsSubmissions: studentsSubmissions });
+// Store one run in IndexedDB; the log's own record is written with its first run
+function storeEntry(entry, isFirst) {
+    const logId = currentLogId;
+    const log = {
+        id: logId,
+        classId: Edrys.class_id,
+        room: Edrys.liveUser?.room ?? '',
+        startedAt: logStartedAt.toISOString()
+    };
+
+    storeQueue = storeQueue
+        .then(() => (isFirst ? db.logs.put(log) : undefined))
+        .then(() => db.entries.add({ logId, ...entry }))
+        .catch((error) => {
+            console.error("Error saving log:", error);
+            storageError.textContent =
+                `Could not save the log in this browser (${error.name || error}). ` +
+                "Runs are still listed here: download the log to keep it.";
+        });
 };
 
-// Load logs from IndexedDB for the select field
+// The runs of a stored log, in the order they arrived
+function readEntries(log) {
+    if (Array.isArray(log.studentsSubmissions)) return Promise.resolve(log.studentsSubmissions);
+    return db.entries.where('logId').equals(log.id).sortBy('seq')
+        .then((entries) => entries.map(({ seq, logId, ...entry }) => entry));
+};
+
+// The select label of a stored log
+function logLabel(log) {
+    if (log.startedAt) return `${log.room} - ${new Date(log.startedAt).toLocaleString()}`;
+
+    // Older format, the id is "User: username_Room name_Date: datetime"
+    const [userAndRoom, dateTime] = log.id.split('_Date:');
+    return `${userAndRoom.split('_')[1]} - ${dateTime} (older format)`;
+};
+
+// Load logs from IndexedDB for the select field: this class's logs, newest
+// first, then the older ones that don't know their class
 function loadLogsIntoModal() {
     db.logs.toArray().then((allLogs) => {
-        logsSelect.innerHTML = '<option value="" disabled selected>Choose a log</option>';
+        logsSelect.replaceChildren(new Option('Choose a log', '', true, true));
+        logsSelect.options[0].disabled = true;
 
-        if (allLogs.length === 0) {
-            const noLogsOption = document.createElement('option');
-            noLogsOption.textContent = "No logs available.";
+        const logs = allLogs
+            .filter((log) => !log.classId || log.classId === Edrys.class_id)
+            .sort((a, b) => (b.startedAt || '').localeCompare(a.startedAt || ''));
+
+        if (logs.length === 0) {
+            const noLogsOption = new Option("No logs available.");
             noLogsOption.disabled = true;
             logsSelect.appendChild(noLogsOption);
             return;
         }
 
-        allLogs.forEach((log) => {
-            const option = document.createElement('option');
-            option.value = log.id;
-            
-            // Parse the log ID
-            // Format: "User: username_Station name_Date: datetime"
-            const parts = log.id.split('_Date:');
-            const userAndStation = parts[0];  // "User: username_Station name"
-            const dateTime = parts[1];        // " datetime"
-            
-            const stationName = userAndStation.split('_')[1]; // "Station name"
-            
-            option.textContent = `${stationName} - Date:${dateTime}`;
-            logsSelect.appendChild(option);
-        });
+        logs.forEach((log) => logsSelect.appendChild(new Option(logLabel(log), log.id)));
+    }).catch((error) => {
+        loadError.textContent = "The saved logs could not be read.";
+        console.error("Error listing logs:", error);
     });
 }
 
@@ -271,19 +341,25 @@ function loadLogFromDB() {
                 return;
             }
 
-            // Update submissions array and render
-            studentsSubmissions = log.studentsSubmissions;
-            renderSubmissions();
+            return readEntries(log).then((entries) => {
+                // Update submissions array and render
+                studentsSubmissions = entries;
+                currentPage = 1;
+                currentLogId = log.id;
+                renderSubmissions();
 
-            // Extract the date from the id (to be used for download)
-            logsDate = selectedLogId.split('_Date: ').pop();
+                // The log's start (to be used for download)
+                logsDate = log.startedAt
+                    ? new Date(log.startedAt).toLocaleString()
+                    : selectedLogId.split('_Date: ').pop();
 
-            // No errors, close the dialog and show the log
-            isLoadError = false;
-            logsModal.close();
-            loadError.textContent = "";
+                // No errors, close the dialog and show the log
+                isLoadError = false;
+                logsModal.close();
+                loadError.textContent = "";
 
-            showLoadedLog('loaded from DB');
+                showLoadedLog('loaded from DB');
+            });
         })
         .catch((error) => {
             isLoadError = true;
@@ -341,6 +417,7 @@ loadLogsFromFile.onclick = () => {
 
                 studentsSubmissions = logs;
                 currentPage = 1;
+                currentLogId = null;
                 // The log's own start, for the download name
                 logsDate = logs.length > 0 ? logs[0].Date : new Date().toLocaleString();
                 renderSubmissions();
@@ -383,10 +460,3 @@ nextPage.onclick = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 };
-
-// Database implementation
-var db = new Dexie("CodeLogger");
-
-db.version(1).stores({
-    logs: 'id'
-});
