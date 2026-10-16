@@ -1,5 +1,5 @@
 // DOM elements
-const roleNote = document.getElementById('role-note');
+const loadingNote = document.getElementById('loading-note');
 const loggerContainer = document.querySelector('.logger-container');
 const roomName = document.getElementById('room-name');
 const statusBadge = document.getElementById('status-badge');
@@ -66,13 +66,8 @@ db.version(2).stores({
 });
 
 Edrys.onReady(() => {
-    // Only teachers may monitor. This hides the UI; it is not a security
-    // boundary, since any module in the room can listen to these subjects.
-    if (Edrys.role !== 'teacher') {
-        roleNote.textContent = 'The code log is only available to teachers.';
-        return;
-    }
-    roleNote.classList.add('hidden');
+    // Who gets the logger is set by show-in (default "*, teacher-only"), not here
+    loadingNote.classList.add('hidden');
     loggerContainer.classList.remove('hidden');
 
     // Messages arrive only from this room; changing rooms reloads the module

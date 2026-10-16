@@ -8,7 +8,9 @@
       name="description"
       content="Logs the code that is run in a room (e.g. with an editor's Execute button), for teachers. <a href='https://github.com/edrys-labs/module-code-logger' target='_blank'>GitHub</a>"
     />
-    <meta name="show-in" content="*" />
+    <!-- Every room, teachers only. Teachers can change it in the module settings,
+         e.g. to "*, station-only" to log at stations. -->
+    <meta name="show-in" content="*, teacher-only" />
     <meta
       name="module-config"
       content="{
@@ -91,10 +93,10 @@
     />
 </head>
 <body>
-    <!-- Shown until Edrys is ready, and to everyone who is not a teacher -->
-    <p id="role-note">Loading…</p>
+    <!-- Shown until Edrys is ready -->
+    <p id="loading-note">Loading…</p>
 
-    <!-- Teachers only: shown in onReady -->
+    <!-- Shown in onReady -->
     <div class="logger-container hidden">
         <header class="header">
             <span class="title">Code Logger</span>

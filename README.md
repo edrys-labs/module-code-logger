@@ -15,8 +15,10 @@ Add the module to your class with this URL:
 https://edrys-labs.github.io/module-code-logger/
 ```
 
-The module is shown in every room (`show-in: *`), but only **teachers** get the log. Students and stations see a
-short note instead. This only hides the controls: any module in a room can receive the messages sent there.
+By default the module is shown in every room, to **teachers only** (`show-in: *, teacher-only`); students and
+stations don't load it. You can change this in the module's settings under *Show in*, e.g. to
+`*, station-only` to let stations log their room unattended (the log is then kept in the station's browser).
+Whoever the module is shown to gets the full log.
 
 1. Enter the room you want to watch. Messages are delivered per room, so only code run **in the teacher's
    current room** is logged. To log the students at a station, enter the station's room.
