@@ -1,4 +1,6 @@
-// DOM elements 
+// DOM elements
+const roleNote = document.getElementById('role-note');
+const loggerContainer = document.querySelector('.logger-container');
 const mainContainer = document.querySelector('.main');
 const startLogger = document.getElementById('start-logger');
 const loadLogsFromDB = document.getElementById('load-logs-from-db');
@@ -30,6 +32,15 @@ const submissionsPerPage = 10;
 
 Edrys.onReady(() => {
     console.log('Code Logger is ready!');
+
+    // Only teachers may monitor. This hides the UI; it is not a security
+    // boundary, since any module in the room can listen to 'execute'.
+    if (Edrys.role !== 'teacher') {
+        roleNote.textContent = 'The code log is only available to teachers.';
+        return;
+    }
+    roleNote.classList.add('hidden');
+    loggerContainer.classList.remove('hidden');
 
     // Hide pagination if no submissions
     if (studentsSubmissions.length === 0) {

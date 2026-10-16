@@ -13,7 +13,11 @@
     <title>Code Logger</title>
 
     <script src="https://edrys-labs.github.io/module/edrys.js"></script>
-    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <script
+      src="https://unpkg.com/dexie@4.4.6/dist/dexie.js"
+      integrity="sha384-sCkAT2j+AZTFdO8/jKW00smf64uZeyOZ4vEJdzqPVASnK8oJGx+87g6GvhWY9448"
+      crossorigin="anonymous"
+    ></script>
 
     <link
       rel="stylesheet"
@@ -40,7 +44,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
 </head>
 <body>
-    <div class="logger-container">
+    <!-- Shown until Edrys is ready, and to everyone who is not a teacher -->
+    <p id="role-note">Loading…</p>
+
+    <!-- Teachers only: shown in onReady -->
+    <div class="logger-container hidden">
         <h1>Students' Code Logs</h1>
 
         <div class="main">
