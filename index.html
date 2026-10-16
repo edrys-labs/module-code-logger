@@ -27,21 +27,51 @@
       rel="stylesheet"
       href="https://edrys-labs.github.io/module/vendor/water.min.css"
     />
-    <link 
-        rel="stylesheet" 
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
+    <link
+      rel="stylesheet"
+      href="https://edrys-labs.github.io/module/vendor/open-iconic/css/open-iconic.min.css"
     />
+
+    <!-- Code highlighting: a light and a dark theme, following water.css -->
+    <link
+      rel="stylesheet"
+      media="(prefers-color-scheme: light)"
+      href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css"
+      integrity="sha384-rCCjoCPCsizaAAYVoz1Q0CmCTvnctK0JkfCSjx7IIxexTBg+uCKtFYycedUjMyA2"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      media="(prefers-color-scheme: dark)"
+      href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css"
+      integrity="sha384-wFjoQjtV1y5jVHbt0p35Ui8aV8GVpEZkyF99OXWqP/eNJDU93D3Ugxkoyh6Y2I4A"
+      crossorigin="anonymous"
+    />
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"
+      integrity="sha384-06z5D//U/xpvxZHuUz92xBvq3DqBBFi7Up53HRrbV7Jlv7Yvh/MZ7oenfUe9iCEt"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"
+      integrity="sha384-7LHwxHIDSHTBleLmgDWZbC/IMJsfYfFVOihKhvsrxYW4j47YQcRwZja4ToFE3bA8"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"
+      integrity="sha384-gaD4ncierlmWk42Z3BmTp37/z+Dqt8V4Wf74UjTvFeo+M+SgnEI6Ysd98pWhksQv"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"
+      integrity="sha384-NiOrAquf32LSG3Vuig99LKS03EZPUuM8a51NOp+XXsqx08hUVo3wbNWALY7K/2J8"
+      crossorigin="anonymous"
+    ></script>
 
     <link
       rel="stylesheet"
       href="./style.css"
     />
-
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-clike.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
 </head>
 <body>
     <!-- Shown until Edrys is ready, and to everyone who is not a teacher -->
@@ -49,48 +79,87 @@
 
     <!-- Teachers only: shown in onReady -->
     <div class="logger-container hidden">
-        <h1>Students' Code Logs</h1>
+        <header class="header">
+            <span class="title">Code Logger</span>
+            <span class="status">
+                <span class="label">room:</span>
+                <span id="room-name" class="mono"></span>
+                <span id="status-badge" class="badge wait">idle</span>
+            </span>
 
-        <div class="main">
-            <button id="start-logger">Start Monitoring</button>
-            <button id="load-logs-from-db">Load Logs from DB</button>
-            <button id="load-logs-from-file">Load Logs from File</button>
+            <!-- Start view -->
+            <span class="controls main">
+                <button id="start-logger">
+                    <span class="oi" data-glyph="media-record" aria-hidden="true"></span> Start Monitoring
+                </button>
+                <button id="load-logs-from-db">
+                    <span class="oi" data-glyph="hard-drive" aria-hidden="true"></span> Load Logs from DB
+                </button>
+                <button id="load-logs-from-file">
+                    <span class="oi" data-glyph="data-transfer-upload" aria-hidden="true"></span> Load Logs from File
+                </button>
+            </span>
 
-            <!-- Load Modal -->
-            <div id="logs-modal" class="modal hidden">
-                <div class="modal-content">
-                    <h3>Select a Log</h3>
-                    <select id="logs-select">
-                        <option value="" disabled selected>Choose a log</option>
-                    </select>
-                    <p id="load-error"></p>
-                    <div class="modal-bottom">
-                        <button id="load-log">Load</button>
-                        <button id="close-modal">Close</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+            <!-- Log view -->
+            <span class="controls logs hidden">
+                <button id="stop-logger">
+                    <span class="oi" data-glyph="media-stop" aria-hidden="true"></span> Stop
+                </button>
+                <button id="clear-logger">
+                    <span class="oi" data-glyph="trash" aria-hidden="true"></span> Clear
+                </button>
+                <button id="download-logs" title="Save the log to a JSON file">
+                    <span class="oi" data-glyph="data-transfer-download" aria-hidden="true"></span> Download
+                </button>
+                <button id="back-to-main" title="Back to the start">
+                    <span class="oi" data-glyph="home" aria-hidden="true"></span> Back
+                </button>
+            </span>
+        </header>
 
-        <div class="logs hidden">
-            <div class="stop-clear-logger">
-                <button id="stop-logger">Stop</button>
-                <button id="clear-logger">Clear</button>
-                <button id="download-logs" title="Save Logs to a File">Download</button>
-                <button id="back-to-main" title="Go Back"><i class="fa fa-arrow-left"></i></button>
-            </div>
+        <!-- Start view -->
+        <p class="hint main">
+            While monitoring, every code run in <strong>this room</strong> (messages with the subject
+            <code>execute</code>, e.g. from an editor's Execute button) is listed here. To log the students at a
+            station, enter the station's room. Leaving the room or reloading stops monitoring; the log so far stays
+            under <em>Load Logs from DB</em>.
+        </p>
+
+        <!-- Log view -->
+        <section class="logs hidden">
+            <p id="empty-log" class="hint"></p>
 
             <div class="students-submissions"></div>
 
-            <div class="prev-next-btns">
-                <button id="prev-btn" title="Previous"><i class="fa fa-arrow-left"></i></button>
-                <button id="next-btn" title="Next"><i class="fa fa-arrow-right"></i></button>
-            </div>
+            <nav class="prev-next-btns" aria-label="Pages">
+                <button id="prev-btn" title="Previous page" aria-label="Previous page">
+                    <span class="oi" data-glyph="chevron-left" aria-hidden="true"></span>
+                </button>
+                <span id="page-info"></span>
+                <button id="next-btn" title="Next page" aria-label="Next page">
+                    <span class="oi" data-glyph="chevron-right" aria-hidden="true"></span>
+                </button>
+            </nav>
 
-            <button id="scroll-up" title="Go Up"><i class="fa fa-arrow-up"></i></button>
-        </div>
+            <button id="scroll-up" class="hidden" title="Scroll to the top" aria-label="Scroll to the top">
+                <span class="oi" data-glyph="arrow-top" aria-hidden="true"></span>
+            </button>
+        </section>
+
+        <dialog id="logs-modal">
+            <h3>Select a Log</h3>
+            <label for="logs-select">Saved logs in this browser</label>
+            <select id="logs-select">
+                <option value="" disabled selected>Choose a log</option>
+            </select>
+            <p id="load-error" role="alert"></p>
+            <div class="modal-bottom">
+                <button id="load-log">Load</button>
+                <button id="close-modal">Close</button>
+            </div>
+        </dialog>
     </div>
-    
+
     <script src="./script.js"></script>
 </body>
 </html>

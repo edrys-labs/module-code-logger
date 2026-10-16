@@ -1,19 +1,26 @@
 // DOM elements
 const roleNote = document.getElementById('role-note');
 const loggerContainer = document.querySelector('.logger-container');
-const mainContainer = document.querySelector('.main');
+const roomName = document.getElementById('room-name');
+const statusBadge = document.getElementById('status-badge');
+
+// Start view: its controls in the header and the hint below
+const mainViews = document.querySelectorAll('.main');
 const startLogger = document.getElementById('start-logger');
 const loadLogsFromDB = document.getElementById('load-logs-from-db');
 const loadLogsFromFile = document.getElementById('load-logs-from-file');
 
-const logsContainer = document.querySelector('.logs');
+// Log view: its controls in the header and the entries below
+const logViews = document.querySelectorAll('.logs');
 const stopLogger = document.getElementById('stop-logger');
 const clearLogger = document.getElementById('clear-logger');
 const downloadLogs = document.getElementById('download-logs');
 const backToMain = document.getElementById('back-to-main');
+const emptyLog = document.getElementById('empty-log');
 const paginationButtons = document.querySelector('.prev-next-btns');
 const prevPage = document.getElementById('prev-btn');
 const nextPage = document.getElementById('next-btn');
+const pageInfo = document.getElementById('page-info');
 
 const logsModal = document.getElementById('logs-modal');
 const logsSelect = document.getElementById('logs-select');
@@ -42,12 +49,26 @@ Edrys.onReady(() => {
     roleNote.classList.add('hidden');
     loggerContainer.classList.remove('hidden');
 
-    // Hide pagination if no submissions
-    if (studentsSubmissions.length === 0) {
-        paginationButtons.classList.add('hidden');
-        return;
-    };
+    // Messages arrive only from this room; changing rooms reloads the module
+    roomName.textContent = Edrys.liveUser?.room ?? '';
 });
+
+// Switch between the start view ('main') and the log view ('logs')
+function showView(view) {
+    mainViews.forEach((element) => element.classList.toggle('hidden', view !== 'main'));
+    logViews.forEach((element) => element.classList.toggle('hidden', view !== 'logs'));
+};
+
+// The badge in the header: kind is 'on', 'off' or 'wait'
+function setStatus(text, kind) {
+    statusBadge.textContent = text;
+    statusBadge.className = `badge ${kind}`;
+};
+
+// The name edrys shows for a user, falling back to the raw username
+function displayName(username) {
+    return Edrys.liveClass?.users?.[username]?.displayName || username;
+};
 
 let studentsSubmissions = []; // To store the code submissions
 
@@ -55,7 +76,8 @@ let studentsSubmissions = []; // To store the code submissions
 Edrys.onMessage(({ from, subject, body }) => {
     if (subject === 'execute' && isLoggingEnabled) {
         const newEntry = {
-            From: from,
+            From: displayName(from),
+            FromId: from,
             Date: new Date().toLocaleString(),
             // Any module may send under 'execute', and bodies can be any value
             Code: typeof body === 'string' ? body : JSON.stringify(body, null, 2)
@@ -73,9 +95,13 @@ function renderSubmissions() {
     const submissionsContainer = document.querySelector('.students-submissions');
     submissionsContainer.replaceChildren();
 
-    // Show pagination if there are submissions
-    paginationButtons.classList.remove('hidden');
     downloadLogs.disabled = studentsSubmissions.length === 0;
+
+    // Empty state
+    emptyLog.classList.toggle('hidden', studentsSubmissions.length > 0);
+    emptyLog.textContent = isLoggingEnabled
+        ? 'No code has been run in this room yet. Waiting…'
+        : 'This log is empty.';
 
     const startIndex = (currentPage - 1) * submissionsPerPage;
     const endIndex = startIndex + submissionsPerPage;
@@ -92,21 +118,21 @@ function renderSubmissions() {
 
         const studentCode = document.createElement('div');
         studentCode.classList.add('student-code');
-        const codeLabel = document.createElement('p');
-        codeLabel.textContent = 'Code:';
         const pre = document.createElement('pre');
         const code = document.createElement('code');
         code.classList.add('language-cpp');
         code.textContent = String(submission.Code ?? '');
         pre.appendChild(code);
-        studentCode.append(codeLabel, pre);
+        studentCode.appendChild(pre);
 
         submissionElement.append(studentInfo, studentCode);
         submissionsContainer.appendChild(submissionElement);
     });
 
-    // Update pagination buttons
+    // Update pagination, shown only when there is more than one page
     const totalPages = Math.ceil(studentsSubmissions.length / submissionsPerPage);
+    paginationButtons.classList.toggle('hidden', totalPages <= 1);
+    pageInfo.textContent = `${currentPage} / ${totalPages}`;
     prevPage.disabled = currentPage === 1;
     nextPage.disabled = currentPage === totalPages || totalPages === 0;
 
@@ -114,15 +140,16 @@ function renderSubmissions() {
     Prism.highlightAll();
 };
 
-// A "Label: value" line of the student info
+// A "Label: value" field of the student info
 function infoField(label, value) {
-    const wrapper = document.createElement('div');
-    const p = document.createElement('p');
-    const span = document.createElement('span');
-    span.textContent = String(value ?? '');
-    p.append(`${label}: `, span);
-    wrapper.appendChild(p);
-    return wrapper;
+    const field = document.createElement('span');
+    const labelElement = document.createElement('span');
+    labelElement.classList.add('label');
+    labelElement.textContent = `${label}:`;
+    const valueElement = document.createElement('span');
+    valueElement.textContent = String(value ?? '');
+    field.append(labelElement, ' ', valueElement);
+    return field;
 };
 
 // Whether parsed JSON is a log as downloaded by this module
@@ -142,14 +169,17 @@ startLogger.onclick = () => {
     clearLogger.disabled = true;
     backToMain.disabled = true;
 
-    mainContainer.classList.add('hidden');
-    logsContainer.classList.remove('hidden');
+    setStatus('monitoring', 'on');
+    showView('logs');
 }
 
 stopLogger.onclick = () => {
     isLoggingEnabled = false;
+    stopLogger.disabled = true;
     clearLogger.disabled = false;
     backToMain.disabled = false;
+    setStatus('stopped', 'off');
+    renderSubmissions();
 };
 
 clearLogger.onclick = () => {
@@ -177,8 +207,8 @@ backToMain.onclick = () => {
     currentPage = 1;
     renderSubmissions();
 
-    mainContainer.classList.remove('hidden');
-    logsContainer.classList.add('hidden');
+    setStatus('idle', 'wait');
+    showView('main');
 };
 
 
@@ -248,14 +278,12 @@ function loadLogFromDB() {
             // Extract the date from the id (to be used for download)
             logsDate = selectedLogId.split('_Date: ').pop();
 
-            // No errors, hide modal and show logs container
+            // No errors, close the dialog and show the log
             isLoadError = false;
-            logsModal.classList.add('hidden');
-            mainContainer.classList.add('hidden');
-            logsContainer.classList.remove('hidden');
+            logsModal.close();
             loadError.textContent = "";
 
-            stopLogger.disabled = true;
+            showLoadedLog('loaded from DB');
         })
         .catch((error) => {
             isLoadError = true;
@@ -265,15 +293,28 @@ function loadLogFromDB() {
 };
 
 
+// Show a log that was loaded, not recorded: it can't be stopped, only cleared or left
+function showLoadedLog(status) {
+    stopLogger.disabled = true;
+    clearLogger.disabled = false;
+    backToMain.disabled = false;
+    setStatus(status, 'wait');
+    showView('logs');
+};
+
 // Load Modal Handlers
 loadLogsFromDB.onclick = () => {
     loadLogsIntoModal();
-    logsModal.classList.remove('hidden');
+    logsModal.showModal();
 };
 
 closeModalButton.onclick = () => {
+    logsModal.close();
+};
+
+// Also on Esc
+logsModal.onclose = () => {
     loadError.textContent = "";
-    logsModal.classList.add('hidden');
 };
 
 loadLog.onclick = () => {
@@ -304,9 +345,7 @@ loadLogsFromFile.onclick = () => {
                 logsDate = logs.length > 0 ? logs[0].Date : new Date().toLocaleString();
                 renderSubmissions();
 
-                mainContainer.classList.add('hidden');
-                logsContainer.classList.remove('hidden');
-                stopLogger.disabled = true;
+                showLoadedLog('loaded from file');
             } catch (error) {
                 alert("Invalid file format. Please upload a valid JSON file.");
             }
@@ -319,11 +358,8 @@ loadLogsFromFile.onclick = () => {
 
 // Handle scroll up 
 window.onscroll = () => {
-    if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
-        scrollUpButton.style.display = 'block';
-    } else {
-        scrollUpButton.style.display = 'none';
-    }
+    const scrolled = document.body.scrollTop > 20 || document.documentElement.scrollTop > 20;
+    scrollUpButton.classList.toggle('hidden', !scrolled);
 };
 
 scrollUpButton.onclick = () => {
