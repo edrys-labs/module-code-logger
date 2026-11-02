@@ -3,9 +3,10 @@
 A teacher's log of the code that is run in a room. While the teacher is monitoring, every message with the
 subject `execute` (sent e.g. by the Execute button of
 [module-monaco-editor](https://github.com/edrys-labs/module-monaco-editor) or [blockly-duino](https://github.com/edrys-labs/module-blockly-duino-v2)) is listed with its sender and
-time, kept in the teacher's browser, and can be downloaded as JSON.
+time, kept in the teacher's browser, and can be downloaded as JSON. The module follows the classroom's light or
+dark theme.
 
-![The code log of a room: header with room and status, and the runs of one student](screenshot.png)
+![The code log of a room: toolbar with status and room, and the runs of one student](screenshot.png)
 
 ## Usage
 
@@ -22,7 +23,7 @@ Whoever the module is shown to gets the full log.
 
 1. Enter the room you want to watch. Messages are delivered per room, so only code run **in the teacher's
    current room** is logged. To log the students at a station, enter the station's room.
-2. Click **Start Monitoring**. The header shows the room and the status (`monitoring`). New runs appear as they
+2. Click **Start Monitoring**. The toolbar shows the status (`monitoring`) and the room. New runs appear as they
    arrive, ten per page.
 3. **Stop** ends the log; **Download** saves it as a JSON file; **Clear** empties the view; **Back** returns to the
    start.

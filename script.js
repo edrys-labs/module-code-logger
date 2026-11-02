@@ -65,6 +65,25 @@ db.version(2).stores({
     entries: '++seq, logId'
 });
 
+// The classroom's theme (edrys.js puts it on <html>), the OS preference when opened on its own
+const darkMode = matchMedia('(prefers-color-scheme: dark)');
+function isDark() {
+    const theme = document.documentElement.dataset.theme;
+    return theme ? theme === 'dark' : darkMode.matches;
+};
+
+// Prism's token colours for the theme
+function applyCodeTheme() {
+    for (const link of document.querySelectorAll('link[data-code-theme]')) {
+        link.media = (link.dataset.codeTheme === 'dark') === isDark() ? 'all' : 'not all';
+    }
+};
+
+applyCodeTheme();
+darkMode.addEventListener('change', applyCodeTheme);
+// onTheme is missing in edrys.js before the themes came
+Edrys.onTheme?.(applyCodeTheme);
+
 Edrys.onReady(() => {
     // Who gets the logger is set by show-in (default "*, teacher-only"), not here
     loadingNote.classList.add('hidden');
@@ -99,10 +118,10 @@ function showView(view) {
     logViews.forEach((element) => element.classList.toggle('hidden', view !== 'logs'));
 };
 
-// The badge in the header: kind is 'on', 'off' or 'wait'
+// The pill in the toolbar: kind is 'ok' while monitoring, '' otherwise
 function setStatus(text, kind) {
     statusBadge.textContent = text;
-    statusBadge.className = `badge ${kind}`;
+    statusBadge.className = `edrys-pill ${kind}`.trim();
 };
 
 // The name edrys shows for a user, falling back to the raw username
@@ -260,7 +279,7 @@ startLogger.onclick = () => {
     clearLogger.disabled = true;
     backToMain.disabled = true;
 
-    setStatus('monitoring', 'on');
+    setStatus('monitoring', 'ok');
     showView('logs');
 }
 
@@ -269,7 +288,7 @@ stopLogger.onclick = () => {
     stopLogger.disabled = true;
     clearLogger.disabled = false;
     backToMain.disabled = false;
-    setStatus('stopped', 'off');
+    setStatus('stopped', '');
     renderSubmissions();
 };
 
@@ -295,7 +314,7 @@ backToMain.onclick = () => {
     currentPage = 1;
     renderSubmissions();
 
-    setStatus('idle', 'wait');
+    setStatus('idle', '');
     showView('main');
 };
 
@@ -414,7 +433,7 @@ function showLoadedLog(status) {
     stopLogger.disabled = true;
     clearLogger.disabled = false;
     backToMain.disabled = false;
-    setStatus(status, 'wait');
+    setStatus(status, '');
     showView('logs');
 };
 

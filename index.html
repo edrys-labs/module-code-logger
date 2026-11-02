@@ -43,20 +43,24 @@
     />
     <link
       rel="stylesheet"
+      href="https://edrys-labs.github.io/module/edrys-module.css"
+    />
+    <link
+      rel="stylesheet"
       href="https://edrys-labs.github.io/module/vendor/open-iconic/css/open-iconic.min.css"
     />
 
-    <!-- Code highlighting: a light and a dark theme, following water.css -->
+    <!-- Code highlighting: a light and a dark theme, one of them switched off by applyCodeTheme() -->
     <link
       rel="stylesheet"
-      media="(prefers-color-scheme: light)"
+      data-code-theme="light"
       href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css"
       integrity="sha384-rCCjoCPCsizaAAYVoz1Q0CmCTvnctK0JkfCSjx7IIxexTBg+uCKtFYycedUjMyA2"
       crossorigin="anonymous"
     />
     <link
       rel="stylesheet"
-      media="(prefers-color-scheme: dark)"
+      data-code-theme="dark"
       href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css"
       integrity="sha384-wFjoQjtV1y5jVHbt0p35Ui8aV8GVpEZkyF99OXWqP/eNJDU93D3Ugxkoyh6Y2I4A"
       crossorigin="anonymous"
@@ -98,19 +102,16 @@
 
     <!-- Shown in onReady -->
     <div class="logger-container hidden">
-        <header class="header">
-            <span class="title">Code Logger</span>
-            <span class="status">
+        <header class="edrys-toolbar">
+            <span id="status-badge" class="edrys-pill" role="status">idle</span>
+            <span class="room">
                 <span class="label">room:</span>
                 <span id="room-name" class="mono"></span>
-                <span id="status-badge" class="badge wait">idle</span>
             </span>
+            <span class="edrys-spacer"></span>
 
             <!-- Start view -->
             <span class="controls main">
-                <button id="start-logger">
-                    <span class="oi" data-glyph="media-record" aria-hidden="true"></span> Start Monitoring
-                </button>
                 <button id="load-logs-from-db">
                     <span class="oi" data-glyph="hard-drive" aria-hidden="true"></span> Load Logs from DB
                 </button>
@@ -136,35 +137,42 @@
             </span>
         </header>
 
-        <!-- Start view -->
-        <p class="hint main">
-            While monitoring, every code run in <strong>this room</strong> (messages with the subject
-            <code id="subjects">execute</code>, e.g. from an editor's Execute button) is listed here. To log the students at a
-            station, enter the station's room. Leaving the room or reloading stops monitoring; the log so far stays
-            under <em>Load Logs from DB</em>.
-        </p>
-
-        <!-- Log view -->
-        <section class="logs hidden">
-            <p id="storage-error" class="error" role="alert"></p>
-            <p id="empty-log" class="hint"></p>
-
-            <div class="students-submissions"></div>
-
-            <nav class="prev-next-btns" aria-label="Pages">
-                <button id="prev-btn" title="Previous page" aria-label="Previous page">
-                    <span class="oi" data-glyph="chevron-left" aria-hidden="true"></span>
+        <main>
+            <!-- Start view -->
+            <section class="start main">
+                <p class="hint main">
+                    While monitoring, every code run in <strong>this room</strong> (messages with the subject
+                    <code id="subjects">execute</code>, e.g. from an editor's Execute button) is listed here. To log the students at a
+                    station, enter the station's room. Leaving the room or reloading stops monitoring; the log so far stays
+                    under <em>Load Logs from DB</em>.
+                </p>
+                <button id="start-logger" class="primary">
+                    <span class="oi" data-glyph="media-record" aria-hidden="true"></span> Start Monitoring
                 </button>
-                <span id="page-info"></span>
-                <button id="next-btn" title="Next page" aria-label="Next page">
-                    <span class="oi" data-glyph="chevron-right" aria-hidden="true"></span>
-                </button>
-            </nav>
+            </section>
 
-            <button id="scroll-up" class="hidden" title="Scroll to the top" aria-label="Scroll to the top">
-                <span class="oi" data-glyph="arrow-top" aria-hidden="true"></span>
-            </button>
-        </section>
+            <!-- Log view -->
+            <section class="logs hidden">
+                <p id="storage-error" class="error" role="alert"></p>
+                <p id="empty-log" class="hint"></p>
+
+                <div class="students-submissions"></div>
+
+                <nav class="prev-next-btns" aria-label="Pages">
+                    <button id="prev-btn" title="Previous page" aria-label="Previous page">
+                        <span class="oi" data-glyph="chevron-left" aria-hidden="true"></span>
+                    </button>
+                    <span id="page-info"></span>
+                    <button id="next-btn" title="Next page" aria-label="Next page">
+                        <span class="oi" data-glyph="chevron-right" aria-hidden="true"></span>
+                    </button>
+                </nav>
+
+                <button id="scroll-up" class="hidden" title="Scroll to the top" aria-label="Scroll to the top">
+                    <span class="oi" data-glyph="arrow-top" aria-hidden="true"></span>
+                </button>
+            </section>
+        </main>
 
         <dialog id="logs-modal">
             <h3>Select a Log</h3>
@@ -174,7 +182,7 @@
             </select>
             <p id="load-error" role="alert"></p>
             <div class="modal-bottom">
-                <button id="load-log">Load</button>
+                <button id="load-log" class="primary">Load</button>
                 <button id="close-modal">Close</button>
             </div>
         </dialog>
