@@ -124,9 +124,11 @@ function setStatus(text, kind) {
     statusBadge.className = `edrys-pill ${kind}`.trim();
 };
 
-// The name edrys shows for a user, falling back to the raw username
+// How edrys shows a user: a chosen name, which isn't unique, before the short id.
+// Falls back to the raw username.
 function displayName(username) {
-    return Edrys.liveClass?.users?.[username]?.displayName || username;
+    const user = Edrys.liveClass?.users?.[username];
+    return [user?.username, user?.displayName].filter(Boolean).join(' · ') || username;
 };
 
 let studentsSubmissions = []; // To store the code submissions
